@@ -1,41 +1,43 @@
-#' @title Read historical bike trips data in Norway directly into R
+#' @title Read historical bike trips data in Norway to R
 #'
 #' @description
-#' \code{read_trips_data} and \code{fread_trips_data} imports anonymized
-#' historical bike trip records in Norway for the city of Oslo, Bergen,
-#' and Trondheim directly into R.
+#' \code{read_trips_data} imports anonymized
+#' historical bike trips data in Norway for the city of Oslo, Bergen,
+#' and Trondheim directly to R.
 #'
-#' Reading the trip records CSV files from the City Bike websites can
-#' take its time. To speed up the process, \code{fread_trips_data} utilizes
-#' the \code{fread} function in the \code{data.table} packages. To use
-#' \code{fread_trips_data} requires having \code{data.table} installed.
-#'
-#' To get trip records for winter bikes in each city, add a capital "W" at
-#' the end of the city name (f.ex. "OsloW" for Oslo). Trip records for winter
+#' To read bike trips data for winter bikes in Oslo, add a capital "W" at
+#' the end of the city name (i.e. "OsloW"). Trip records for winter
 #' bikes are currently only available for Oslo at the time of writing
 #' (2019-03-04).
 #'
 #' The data is provided according to the Norwegian License for Open Government
 #' Data 2.0 \href{https://data.norge.no/nlod/en/2.0}{NLOD 2.0}.
 #'
+#' The data is read from:
+#'
+#' \itemize{
+#'   \item \href{https://oslobysykkel.no/en/open-data/historical}{Oslo City Bike}
+#'   \item \href{https://oslovintersykkel.no/en/open-data/historical}{Oslo Winter Bike}
+#'   \item \href{https://bergenbysykkel.no/en/open-data/historical}{Bergen City Bike}
+#'   \item \href{https://trondheimbysykkel.no/en/open-data/historical}{Trondheim City Bike}
+#'}
+#'
 #' @usage
 #' read_trips_data(year, month, city)
 #'
 #' @param year
-#' A numeric variable that informs the function for which year you want to
-#' download data.
+#' A number. The year that you want to download data for.
 #'
 #' @param month
-#' A numeric variable that informs the function for which year you want to
-#' download data.
+#' A number. The month that you want to download data for.
 #'
 #' @param city
-#' A character string that informs the function for which city you want to
-#' download data from.
+#' A string. The city you want to download data from. The options are
+#' "Oslo", "OsloW", "Bergen", and "Trondheim".
 #'
 #' @return
-#' The function reads in bike trips data for the specified year and month
-#' as a tibble in R.
+#' The function reads in bike trips data for the specified year, month, and city
+#' to R as a tibble.
 #'
 #' @examples
 #' \dontrun{
@@ -46,40 +48,35 @@
 #' # Read bike trips data for the month of October 2018 in Trondheim
 #' trondheim_trips <- read_trips_data(2018, 10, "Trondheim")
 #'
-#' # Use "lapply()" to read bike trips data for several months in Oslo
-#' oslo_winter_trips <- lapply(01:02, read_trips_data, year = 2019, city = "OsloW")
-#'
-#' # Use "rbind()" to bind each element of the list "oslo_winter_trips" to
-#' # to a dataframe
-#' oslo_winter_trips <- do.call(rbind, oslo_winter_trips)
-#'
-#'}
+#' }
 #'
 #' @importFrom glue glue
-#' @importFrom utils read.csv
+#' @importFrom tibble as_tibble
+#' @importFrom httr http_error
+#' @importFrom lubridate month
+#' @importFrom lubridate year
 #' @export read_trips_data
 
 read_trips_data <- function(year, month, city) {
 
-  print(glue("Reading data for {year}-{sprintf('%0.2d', month)} for the city of {city}."))
+# Control input arguments -------------------------------------------------
 
-# Argument control --------------------------------------------------------
+  bysykkel_control_input(year, month, city)
 
-  stopifnot(is.character(city),
-            is.numeric(month),
-            city %in% c("OsloW", "Bergen", "Trondheim"),
-            month %in% c(1:12))
+  bysykkel_control_date(year, month, city)
+
+  message(glue::glue("Getting bike data for {city} for ",
+                     "{lubridate::month(month, label = TRUE, abbr = FALSE)}, ",
+                     "{year}."))
 
 # Control structure -------------------------------------------------------
 
-  if (city == "OsloW") {
-    read_trips_data_oslow(year, month)
-  } else if (city == "Bergen") {
-    read_trips_data_bergen(year, month)
-  } else if (city == "Trondheim") {
-    read_trips_data_trondheim(year, month)
-  } else {
-    warning("Please choose a valid argument for `city`.")
-  }
+  switch(city,
+    "Oslo" = read_trips_data_oslo(year, month),
+    "OsloW" = read_trips_data_oslow(year, month),
+    "Bergen" = read_trips_data_bergen(year, month),
+    "Trondheim" = read_trips_data_trondheim(year, month),
+    stop("Something went wrong.")
+  )
 
 }
